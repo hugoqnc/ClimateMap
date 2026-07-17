@@ -1,0 +1,14 @@
+// Prefer a repository-local credential file. The second include keeps the
+// existing smart-home workspace configuration working during development.
+#include? "../.env"
+#include? "../../../.env"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.queinnec.SmartHome
+PRODUCT_NAME = ClimateMap
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+
+INFOPLIST_KEY_CFBundleDisplayName = ClimateMap
+INFOPLIST_KEY_SwitchBotToken = $(TOKEN)
+INFOPLIST_KEY_SwitchBotSecret = $(SECRET)
