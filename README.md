@@ -20,7 +20,7 @@ The `ClimateWidget` target provides an interactive medium widget named **Climate
 - a Silence control with explicit ON/OFF status;
 - dimmed, inert controls whenever power or Eco mode makes an action unavailable.
 
-The widget requests a new timeline approximately every 15 minutes; WidgetKit decides the exact execution time. Its provider reuses readings under one minute old and otherwise asks SwitchBot for the thermometer associated with Climate. The app requests an immediate widget timeline reload after receiving newer readings or changing climate state, so normal app and widget use converge quickly without excessive API traffic.
+The widget requests a new timeline approximately every 15 minutes; WidgetKit decides the exact execution time. Its provider reuses readings under one minute old and otherwise asks SwitchBot for the thermometer associated with Climate. The app requests an immediate widget timeline reload after receiving newer readings or changing climate state, plus one coalesced final reload when it becomes inactive, so the Home Screen reflects the controller state without waiting for the scheduled refresh.
 
 ## Changing the floor plan
 

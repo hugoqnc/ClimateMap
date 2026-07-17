@@ -34,8 +34,11 @@ struct MeterReading: Identifiable, Hashable, Sendable {
 @MainActor
 @Observable
 final class HomeModel {
+    private static let climateWidgetKind = "ClimateControlWidget"
+
     private let client: SwitchBotClient?
     private(set) var state: PersistedHomeState
+    private var climateWidgetNeedsFinalReload = false
 
     var meters: [MeterReading] = []
     var climateRemote: SwitchBotInfraredRemote?
@@ -136,17 +139,17 @@ final class HomeModel {
 
     func setLinkedMeter(_ id: String?) {
         state.linkedMeterID = id
-        save()
+        save(reloadClimateWidget: true)
     }
 
     func setPower(_ isOn: Bool) async {
         let previous = state.ac.isOn
         state.ac.isOn = isOn
-        save()
+        save(reloadClimateWidget: true)
         commandActivity = isOn ? "Turning climate on…" : "Turning climate off…"
         guard await send(isOn ? "On" : "Off") else {
             state.ac.isOn = previous
-            save()
+            save(reloadClimateWidget: true)
             commandActivity = nil
             return
         }
@@ -156,11 +159,11 @@ final class HomeModel {
     func setSilence(_ enabled: Bool) async {
         let previous = state.ac.silence
         state.ac.silence = enabled
-        save()
+        save(reloadClimateWidget: true)
         commandActivity = enabled ? "Enabling silence…" : "Disabling silence…"
         guard await send("Silence") else {
             state.ac.silence = previous
-            save()
+            save(reloadClimateWidget: true)
             commandActivity = nil
             return
         }
@@ -172,12 +175,12 @@ final class HomeModel {
         let previousSilence = state.ac.silence
         state.ac.eco = enabled
         if enabled { state.ac.silence = false }
-        save()
+        save(reloadClimateWidget: true)
         commandActivity = enabled ? "Enabling Eco…" : "Disabling Eco…"
         guard await send("Eco") else {
             state.ac.eco = previous
             state.ac.silence = previousSilence
-            save()
+            save(reloadClimateWidget: true)
             commandActivity = nil
             return
         }
@@ -190,7 +193,7 @@ final class HomeModel {
         let delta = clamped - startingTemperature
         guard delta != 0 else { return }
         state.ac.targetTemperature = clamped
-        save()
+        save(reloadClimateWidget: true)
         commandActivity = "Setting \(clamped)°…"
         let command = delta > 0 ? "+" : "-"
         var completedSteps = 0
@@ -200,7 +203,7 @@ final class HomeModel {
         }
         if completedSteps != abs(delta) {
             state.ac.targetTemperature = startingTemperature + completedSteps * delta.signum()
-            save()
+            save(reloadClimateWidget: true)
         }
         isSendingCommand = false
         commandActivity = nil
@@ -211,7 +214,7 @@ final class HomeModel {
         let steps = (level.rawValue - startingLevel.rawValue + FanLevel.allCases.count) % FanLevel.allCases.count
         guard steps > 0 else { return }
         state.ac.fanLevel = level
-        save()
+        save(reloadClimateWidget: true)
         commandActivity = "Changing ventilation…"
         var completedSteps = 0
         for _ in 0..<steps {
@@ -221,7 +224,7 @@ final class HomeModel {
         if completedSteps != steps {
             let actualRawValue = (startingLevel.rawValue + completedSteps) % FanLevel.allCases.count
             state.ac.fanLevel = FanLevel(rawValue: actualRawValue) ?? startingLevel
-            save()
+            save(reloadClimateWidget: true)
         }
         isSendingCommand = false
         commandActivity = nil
@@ -232,7 +235,7 @@ final class HomeModel {
         let steps = (mode.rawValue - startingMode.rawValue + OscillationMode.allCases.count) % OscillationMode.allCases.count
         guard steps > 0 else { return }
         state.ac.oscillation = mode
-        save()
+        save(reloadClimateWidget: true)
         commandActivity = "Changing oscillation…"
         var completedSteps = 0
         for _ in 0..<steps {
@@ -242,7 +245,7 @@ final class HomeModel {
         if completedSteps != steps {
             let actualRawValue = (startingMode.rawValue + completedSteps) % OscillationMode.allCases.count
             state.ac.oscillation = OscillationMode(rawValue: actualRawValue) ?? startingMode
-            save()
+            save(reloadClimateWidget: true)
         }
         isSendingCommand = false
         commandActivity = nil
@@ -292,10 +295,19 @@ final class HomeModel {
             remoteID: climateRemote.deviceId,
             meterID: linkedMeter.id
         ))
-        WidgetCenter.shared.reloadTimelines(ofKind: "ClimateControlWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.climateWidgetKind)
     }
 
-    private func save() {
+    func flushPendingClimateWidgetUpdate() {
+        guard climateWidgetNeedsFinalReload else { return }
+        climateWidgetNeedsFinalReload = false
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.climateWidgetKind)
+    }
+
+    private func save(reloadClimateWidget: Bool = false) {
         HomeStatePersistence.save(state)
+        guard reloadClimateWidget else { return }
+        climateWidgetNeedsFinalReload = true
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.climateWidgetKind)
     }
 }

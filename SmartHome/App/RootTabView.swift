@@ -33,6 +33,11 @@ struct RootTabView: View {
             guard url.scheme == "queinnec-smarthome", url.host == "climate" else { return }
             selectedTab = .climate
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                model.flushPendingClimateWidgetUpdate()
+            }
+        }
         .task(id: scenePhase) {
             if opensClimate { selectedTab = .climate }
             guard scenePhase == .active else { return }
