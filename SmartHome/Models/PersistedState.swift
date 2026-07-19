@@ -150,6 +150,8 @@ struct PersistedHomeState: Codable, Sendable {
     var positions: [String: PlanPoint] = [:]
     var ac = ACState()
     var linkedMeterID: String?
+    var homePowerSwitchID: String?
+    var homePowerSwitchName: String?
 }
 
 enum HomeStatePersistence {

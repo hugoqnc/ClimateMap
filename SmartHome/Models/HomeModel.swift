@@ -55,12 +55,15 @@ final class HomeModel {
     private static let climateWidgetKind = "ClimateControlWidget"
 
     private let client: SwitchBotClient?
+    private let appleHomeProvider: AppleHomePowerProvider
     private(set) var state: PersistedHomeState
     private var climateWidgetNeedsFinalReload = false
     private var restoredVentPreparationTask: Task<Void, Never>?
     private var ventOperationGeneration = 0
 
     var meters: [MeterReading] = []
+    var appleHomePowerSwitches: [AppleHomePowerSwitch] = []
+    var appleHomeAccessState: AppleHomeAccessState = .notDetermined
     var climateRemote: SwitchBotInfraredRemote?
     var isRefreshing = false
     var isSendingCommand = false
@@ -73,16 +76,40 @@ final class HomeModel {
 
     init() {
         state = HomeStatePersistence.load()
+        appleHomeProvider = AppleHomePowerProvider()
         do {
             client = SwitchBotClient(credentials: try .bundled())
         } catch {
             client = nil
             errorMessage = error.localizedDescription
         }
+        appleHomeProvider.onSnapshot = { [weak self] switches, accessState in
+            guard let self else { return }
+            self.appleHomePowerSwitches = switches
+            self.appleHomeAccessState = accessState
+            self.synchronizePowerFromSelectedHomeSwitch()
+        }
+        appleHomeProvider.start()
     }
 
     var linkedMeter: MeterReading? {
         meters.first { $0.id == state.linkedMeterID }
+    }
+
+    var selectedHomePowerSwitch: AppleHomePowerSwitch? {
+        guard let switchID = state.homePowerSwitchID else { return nil }
+        return appleHomePowerSwitches.first { $0.id == switchID }
+    }
+
+    func setHomePowerSwitch(_ powerSwitch: AppleHomePowerSwitch?) {
+        state.homePowerSwitchID = powerSwitch?.id
+        state.homePowerSwitchName = powerSwitch?.name
+        save(reloadClimateWidget: true)
+        synchronizePowerFromSelectedHomeSwitch()
+    }
+
+    func refreshAppleHomePowerSwitches() async {
+        await appleHomeProvider.refresh()
     }
 
     var hasCompleteMeterData: Bool {
@@ -104,10 +131,13 @@ final class HomeModel {
     }
 
     func refresh() async {
-        guard let client, !isRefreshing else { return }
+        guard !isRefreshing else { return }
         isRefreshing = true
         lastRefreshAttempt = Date()
         defer { isRefreshing = false }
+
+        await appleHomeProvider.refresh()
+        guard let client else { return }
         do {
             let deviceList = try await client.devices()
             let meterDevices = deviceList.deviceList.filter(\.isMeter)
@@ -157,6 +187,7 @@ final class HomeModel {
 
     func reloadPersistedState() {
         state = HomeStatePersistence.load()
+        synchronizePowerFromSelectedHomeSwitch()
         restorePersistedAutomaticPreparationIfNeeded()
     }
 
@@ -204,7 +235,19 @@ final class HomeModel {
             )
         }
 
-        let succeeded = await send(isOn ? "On" : "Off", manageBusyState: false)
+        let succeeded: Bool
+        if let homePowerSwitchID = state.homePowerSwitchID {
+            do {
+                try await appleHomeProvider.setPower(isOn, switchID: homePowerSwitchID)
+                errorMessage = nil
+                succeeded = true
+            } catch {
+                errorMessage = error.localizedDescription
+                succeeded = false
+            }
+        } else {
+            succeeded = await send(isOn ? "On" : "Off", manageBusyState: false)
+        }
         guard operationGeneration == ventOperationGeneration else { return }
         guard succeeded else {
             state.ac = previous
@@ -706,6 +749,33 @@ final class HomeModel {
             errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    private func synchronizePowerFromSelectedHomeSwitch() {
+        guard !isSendingCommand,
+              let selectedHomePowerSwitch,
+              selectedHomePowerSwitch.isReachable,
+              selectedHomePowerSwitch.isOn != state.ac.isOn
+        else { return }
+
+        let retainedVentMode = requestedVentMode
+            ?? ventControlOperation?.requestedMode
+            ?? state.ac.oscillation
+        restoredVentPreparationTask?.cancel()
+        restoredVentPreparationTask = nil
+        ventOperationGeneration += 1
+        ventControlOperation = nil
+        requestedVentMode = nil
+
+        state.ac.isOn = selectedHomePowerSwitch.isOn
+        state.ac.oscillation = retainedVentMode == .fixed ? .none : retainedVentMode
+        if selectedHomePowerSwitch.isOn, state.ac.oscillation == .dynamic {
+            state.ac.oscillationStartedAt = Date()
+        } else {
+            state.ac.oscillationStartedAt = nil
+        }
+        save(reloadClimateWidget: true)
+        restorePersistedAutomaticPreparationIfNeeded()
     }
 
     private func ensureInitialPlacement() {

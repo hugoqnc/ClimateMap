@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSHomeKitUsageDescription</key>
+	<string>ClimateMap uses your selected Apple Home switch to keep Climate power synchronized.</string>
 	<key>SwitchBotSecret</key>
 	<string>$(SECRET)</string>
 	<key>SwitchBotToken</key>

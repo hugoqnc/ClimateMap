@@ -8,7 +8,15 @@ Native SwiftUI app for the personal SwitchBot installation.
 2. Open `SmartHome.xcodeproj` in Xcode 26.4 or newer.
 3. Select an iOS 26 simulator and run the shared `ClimateMap` scheme.
 
-For a physical iPhone, select your personal Apple Development team under **Signing & Capabilities**, connect the phone, and run. The credentials are embedded into the app and widget at build time. Keep the `group.com.queinnec.SmartHome` App Group enabled for both targets so their state remains synchronized.
+For a physical iPhone, select your personal Apple Development team under **Signing & Capabilities**, connect the phone, and run. The credentials are embedded into the app and widget at build time. Keep the `group.com.queinnec.SmartHome` App Group enabled for both targets and the HomeKit capability enabled for the main app target.
+
+## Apple Home power override
+
+ClimateMap can use an Apple Home switch or outlet as the Climate power source while keeping every other command on SwitchBot. Open **Plan → Settings → Power Control** and choose either **SwitchBot API** or one of the switches discovered in Apple Home.
+
+When an Apple Home switch is selected, the app observes its live state and uses it for Power in both the Climate screen and widget. The widget's shared Power intent executes through the main app in the background so it uses the app's Home Data authorization without opening ClimateMap. Temperature, target, silence, Eco, ventilation, and air direction still use the SwitchBot API. Selecting **SwitchBot API** removes the override.
+
+The system presents the Home Data permission dialog automatically on first launch. `NSHomeKitUsageDescription`, the `com.apple.developer.homekit` entitlement, and the Xcode HomeKit capability are committed for the main app.
 
 ## Climate widget
 

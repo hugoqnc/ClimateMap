@@ -31,6 +31,7 @@ UserDefaults is preferable to SwiftData here because the persisted model is one 
 - [x] Two native Liquid Glass tabs
 - [x] SwitchBot API v1.1 HMAC authentication
 - [x] Live discovery for Meter Plus and the infrared climate remote
+- [x] Optional Apple Home switch override for app and widget power control
 - [x] UserDefaults position and AC-state persistence
 - [x] Plan edit mode with draggable SF Symbol markers
 - [x] Wall- and door-aware temperature diffusion

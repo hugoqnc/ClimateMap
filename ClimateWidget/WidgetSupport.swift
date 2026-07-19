@@ -38,6 +38,8 @@ struct WidgetHomeState: Codable, Sendable {
     var positions: [String: WidgetPlanPoint] = [:]
     var ac = WidgetACState()
     var linkedMeterID: String?
+    var homePowerSwitchID: String?
+    var homePowerSwitchName: String?
 }
 
 struct WidgetClimateCache: Codable, Sendable {

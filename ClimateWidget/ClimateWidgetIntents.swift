@@ -1,48 +1,6 @@
 import AppIntents
 import WidgetKit
 
-struct ToggleClimatePowerIntent: AppIntent {
-    static let title: LocalizedStringResource = "Toggle Climate Power"
-    static let description = IntentDescription("Turns Climate on or off.")
-    static let openAppWhenRun = false
-
-    func perform() async throws -> some IntentResult {
-        var state = WidgetSharedStore.loadState()
-        let previous = state.ac
-        let desired = !previous.isOn
-        state.ac.isOn = desired
-        if !desired {
-            if state.ac.oscillation == .fixed {
-                state.ac.oscillation = .none
-            }
-            state.ac.oscillationStartedAt = nil
-        } else if state.ac.oscillation == .fixed {
-            state.ac.oscillation = .none
-            state.ac.oscillationStartedAt = nil
-        }
-        WidgetSharedStore.saveState(state)
-        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.widgetKind)
-
-        do {
-            let client = try WidgetClimateService.client()
-            let remoteID = try await WidgetClimateService.remoteID(using: client)
-            let commandStartedAt = Date()
-            try await client.send(desired ? "On" : "Off", deviceID: remoteID)
-            if desired, state.ac.oscillation == .dynamic {
-                state.ac.oscillationStartedAt = commandStartedAt
-                WidgetSharedStore.saveState(state)
-                WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.widgetKind)
-            }
-        } catch {
-            state.ac = previous
-            WidgetSharedStore.saveState(state)
-            WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.widgetKind)
-            throw error
-        }
-        return .result()
-    }
-}
-
 struct DecreaseClimateTemperatureIntent: AppIntent {
     static let title: LocalizedStringResource = "Decrease Climate Temperature"
     static let openAppWhenRun = false

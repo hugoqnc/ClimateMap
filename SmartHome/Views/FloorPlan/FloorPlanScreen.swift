@@ -3,6 +3,7 @@ import SwiftUI
 struct FloorPlanScreen: View {
     @Bindable var model: HomeModel
     @State private var isEditing = ProcessInfo.processInfo.arguments.contains("--edit-plan")
+    @State private var isShowingSettings = false
 
     var body: some View {
         NavigationStack {
@@ -38,6 +39,12 @@ struct FloorPlanScreen: View {
             .navigationTitle("Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Settings", systemImage: "gearshape") {
+                        isShowingSettings = true
+                    }
+                }
+
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await model.refresh() }
@@ -60,6 +67,11 @@ struct FloorPlanScreen: View {
             }
             .sensoryFeedback(.selection, trigger: isEditing)
             .refreshable { await model.refresh() }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsScreen(model: model)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 }
