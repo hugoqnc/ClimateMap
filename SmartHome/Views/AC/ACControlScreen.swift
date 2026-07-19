@@ -5,8 +5,9 @@ struct ACControlScreen: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    VStack(spacing: 18) {
                     statusHeader
 
                     VStack(spacing: 0) {
@@ -100,14 +101,11 @@ struct ACControlScreen: View {
                         isEnabled: ventilationControlsEnabled
                     )
 
-                    selectionCard(
-                        title: "Oscillation",
-                        symbol: "arrow.left.and.right",
-                        selection: oscillationBinding,
-                        values: OscillationMode.allCases,
-                        label: \OscillationMode.title,
-                        isEnabled: modeControlsEnabled
-                    )
+                        VentDirectionControl(
+                            model: model,
+                            isAvailable: model.state.ac.isOn
+                        )
+                        .id("vent-control")
 
                     if let activity = model.commandActivity {
                         HStack(spacing: 10) {
@@ -119,24 +117,30 @@ struct ACControlScreen: View {
                         .foregroundStyle(.secondary)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 30)
+                    .animation(.smooth(duration: 0.25), value: model.state.ac.isOn)
+                    .animation(.smooth(duration: 0.25), value: model.state.ac.eco)
+                    .animation(.smooth(duration: 0.2), value: model.commandActivity)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 30)
-                .animation(.smooth(duration: 0.25), value: model.state.ac.isOn)
-                .animation(.smooth(duration: 0.25), value: model.state.ac.eco)
-                .animation(.smooth(duration: 0.2), value: model.commandActivity)
+                .background {
+                    LinearGradient(
+                        colors: [Color.cyan.opacity(0.12), Color(.systemBackground), Color.indigo.opacity(0.07)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+                }
+                .navigationTitle("Climate")
+                .navigationBarTitleDisplayMode(.large)
+                .refreshable { await model.refresh() }
+                .task {
+                    guard ProcessInfo.processInfo.arguments.contains("--open-vent") else { return }
+                    try? await Task.sleep(for: .milliseconds(350))
+                    scrollProxy.scrollTo("vent-control", anchor: .center)
+                }
             }
-            .background {
-                LinearGradient(
-                    colors: [Color.cyan.opacity(0.12), Color(.systemBackground), Color.indigo.opacity(0.07)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-            }
-            .navigationTitle("Climate")
-            .navigationBarTitleDisplayMode(.large)
-            .refreshable { await model.refresh() }
         }
     }
 
@@ -251,13 +255,6 @@ struct ACControlScreen: View {
         Binding(
             get: { model.state.ac.fanLevel },
             set: { value in Task { await model.setFanLevel(value) } }
-        )
-    }
-
-    private var oscillationBinding: Binding<OscillationMode> {
-        Binding(
-            get: { model.state.ac.oscillation },
-            set: { value in Task { await model.setOscillation(value) } }
         )
     }
 

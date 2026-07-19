@@ -15,6 +15,7 @@ struct RootTabView: View {
     init() {
         opensClimate = ProcessInfo.processInfo.arguments.contains("--open-climate")
             || ProcessInfo.processInfo.arguments.contains("--open-ac")
+            || ProcessInfo.processInfo.arguments.contains("--open-vent")
         _selectedTab = State(initialValue: opensClimate ? .climate : .plan)
     }
 

@@ -39,4 +39,5 @@ UserDefaults is preferable to SwiftData here because the persisted model is one 
 - [x] Native AC controls with a 24°C / on / high-fan default
 - [x] Interactive medium Climate widget with linked room temperature
 - [x] Shared App Group state and rate-conscious WidgetKit timeline refresh
+- [x] Real-time side-profile vent control with calibrated 6-second closure and release-to-set positioning
 - [x] iOS 26.4 simulator build, install, launch, and live API verification

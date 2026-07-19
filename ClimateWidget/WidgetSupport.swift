@@ -1,6 +1,15 @@
 import CryptoKit
 import Foundation
 
+enum WidgetTemperatureRange {
+    static let minimum = 18
+    static let maximum = 30
+
+    static func clamped(_ temperature: Int) -> Int {
+        min(max(temperature, minimum), maximum)
+    }
+}
+
 enum WidgetFanLevel: Int, Codable, Sendable {
     case low, medium, high, auto
 }
@@ -16,6 +25,8 @@ struct WidgetACState: Codable, Sendable {
     var silence = false
     var eco = false
     var oscillation: WidgetOscillationMode = .none
+    var fixedVentPosition: Double?
+    var oscillationStartedAt: Date?
 }
 
 struct WidgetPlanPoint: Codable, Sendable {
@@ -48,8 +59,11 @@ enum WidgetSharedStore {
 
     static func loadState() -> WidgetHomeState {
         guard let data = defaults.data(forKey: stateKey),
-              let state = try? JSONDecoder().decode(WidgetHomeState.self, from: data)
+              var state = try? JSONDecoder().decode(WidgetHomeState.self, from: data)
         else { return WidgetHomeState() }
+        state.ac.targetTemperature = WidgetTemperatureRange.clamped(
+            state.ac.targetTemperature
+        )
         return state
     }
 

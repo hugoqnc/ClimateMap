@@ -39,8 +39,14 @@ struct TemperatureDial: View {
                         lineWidth: 4
                     )
                 }
-                .contentShape(Rectangle())
-                .gesture(dialGesture(geometry: geometry))
+
+                // Limit direct manipulation to the thumb itself. Once the
+                // drag begins there, it continues naturally across the dial.
+                Color.clear
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .position(geometry.knob)
+                    .gesture(dialGesture(geometry: geometry))
 
                 VStack(spacing: 3) {
                     Text("\(displayedTemperature)°")
@@ -63,6 +69,7 @@ struct TemperatureDial: View {
                 temperatureStepper
                     .position(x: proxy.size.width / 2, y: proxy.size.height - 27)
             }
+            .coordinateSpace(name: "temperature-dial")
         }
         .frame(height: 230)
         .onChange(of: temperature) { _, _ in
@@ -74,8 +81,10 @@ struct TemperatureDial: View {
         .accessibilityAdjustableAction { direction in
             guard !isDisabled else { return }
             switch direction {
-            case .increment: onCommit(min(30, temperature + 1))
-            case .decrement: onCommit(max(16, temperature - 1))
+            case .increment:
+                onCommit(min(ClimateTemperatureRange.maximum, temperature + 1))
+            case .decrement:
+                onCommit(max(ClimateTemperatureRange.minimum, temperature - 1))
             @unknown default: break
             }
         }
@@ -83,12 +92,18 @@ struct TemperatureDial: View {
 
     private var temperatureStepper: some View {
         HStack(spacing: 0) {
-            stepButton(symbol: "minus", value: max(16, temperature - 1))
+            stepButton(
+                symbol: "minus",
+                value: max(ClimateTemperatureRange.minimum, temperature - 1)
+            )
 
             Divider()
                 .frame(height: 18)
 
-            stepButton(symbol: "plus", value: min(30, temperature + 1))
+            stepButton(
+                symbol: "plus",
+                value: min(ClimateTemperatureRange.maximum, temperature + 1)
+            )
         }
         .padding(4)
         .background(.thinMaterial, in: .capsule)
@@ -114,7 +129,7 @@ struct TemperatureDial: View {
     }
 
     private func dialGesture(geometry: DialGeometry) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("temperature-dial"))
             .onChanged { value in
                 guard !isDisabled else { return }
                 preview = geometry.temperature(at: value.location)
@@ -143,7 +158,8 @@ private struct DialGeometry {
         center = CGPoint(x: size.width / 2, y: size.height * 0.72)
         radius = min(size.width * 0.39, size.height * 0.63)
         fullArc = Self.arc(center: center, radius: radius, from: .pi, to: 0)
-        let progress = CGFloat(temperature - 16) / 14
+        let range = ClimateTemperatureRange.maximum - ClimateTemperatureRange.minimum
+        let progress = CGFloat(temperature - ClimateTemperatureRange.minimum) / CGFloat(range)
         let angle = .pi * (1 - progress)
         progressArc = Self.arc(center: center, radius: radius, from: .pi, to: angle)
         knob = CGPoint(x: center.x + cos(angle) * radius, y: center.y - sin(angle) * radius)
@@ -152,7 +168,10 @@ private struct DialGeometry {
     func temperature(at point: CGPoint) -> Int {
         let raw = atan2(center.y - point.y, point.x - center.x)
         let angle = min(max(raw, 0), .pi)
-        return min(max(Int((16 + (1 - angle / .pi) * 14).rounded()), 16), 30)
+        let range = ClimateTemperatureRange.maximum - ClimateTemperatureRange.minimum
+        let temperature = Double(ClimateTemperatureRange.minimum)
+            + Double(1 - angle / .pi) * Double(range)
+        return ClimateTemperatureRange.clamped(Int(temperature.rounded()))
     }
 
     private static func arc(center: CGPoint, radius: CGFloat, from start: CGFloat, to end: CGFloat) -> Path {

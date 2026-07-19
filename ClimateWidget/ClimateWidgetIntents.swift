@@ -8,18 +8,33 @@ struct ToggleClimatePowerIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         var state = WidgetSharedStore.loadState()
-        let previous = state.ac.isOn
-        let desired = !previous
+        let previous = state.ac
+        let desired = !previous.isOn
         state.ac.isOn = desired
+        if !desired {
+            if state.ac.oscillation == .fixed {
+                state.ac.oscillation = .none
+            }
+            state.ac.oscillationStartedAt = nil
+        } else if state.ac.oscillation == .fixed {
+            state.ac.oscillation = .none
+            state.ac.oscillationStartedAt = nil
+        }
         WidgetSharedStore.saveState(state)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.widgetKind)
 
         do {
             let client = try WidgetClimateService.client()
             let remoteID = try await WidgetClimateService.remoteID(using: client)
+            let commandStartedAt = Date()
             try await client.send(desired ? "On" : "Off", deviceID: remoteID)
+            if desired, state.ac.oscillation == .dynamic {
+                state.ac.oscillationStartedAt = commandStartedAt
+                WidgetSharedStore.saveState(state)
+                WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.widgetKind)
+            }
         } catch {
-            state.ac.isOn = previous
+            state.ac = previous
             WidgetSharedStore.saveState(state)
             WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.widgetKind)
             throw error
@@ -78,7 +93,7 @@ private func adjustTemperature(by amount: Int, command: String) async throws {
     var state = WidgetSharedStore.loadState()
     guard state.ac.isOn, !state.ac.eco else { return }
     let previous = state.ac.targetTemperature
-    let desired = min(max(previous + amount, 16), 30)
+    let desired = WidgetTemperatureRange.clamped(previous + amount)
     guard desired != previous else { return }
     state.ac.targetTemperature = desired
     WidgetSharedStore.saveState(state)

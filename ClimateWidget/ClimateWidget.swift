@@ -120,12 +120,14 @@ struct ClimateWidgetView: View {
                 HStack(spacing: 18) {
                     temperatureButton(
                         symbol: "minus",
-                        enabled: canAdjustTemperature && entry.state.ac.targetTemperature > 16,
+                        enabled: canAdjustTemperature
+                            && entry.state.ac.targetTemperature > WidgetTemperatureRange.minimum,
                         intent: DecreaseClimateTemperatureIntent()
                     )
                     temperatureButton(
                         symbol: "plus",
-                        enabled: canAdjustTemperature && entry.state.ac.targetTemperature < 30,
+                        enabled: canAdjustTemperature
+                            && entry.state.ac.targetTemperature < WidgetTemperatureRange.maximum,
                         intent: IncreaseClimateTemperatureIntent()
                     )
                 }
@@ -185,7 +187,9 @@ struct ClimateWidgetView: View {
 
     private var gaugeProgress: Double {
         guard entry.state.ac.isOn, !entry.state.ac.eco else { return 0 }
-        return Double(entry.state.ac.targetTemperature - 16) / 14
+        let range = WidgetTemperatureRange.maximum - WidgetTemperatureRange.minimum
+        return Double(entry.state.ac.targetTemperature - WidgetTemperatureRange.minimum)
+            / Double(range)
     }
 
     private var gaugeText: String {

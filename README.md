@@ -22,6 +22,12 @@ The `ClimateWidget` target provides an interactive medium widget named **Climate
 
 The widget requests a new timeline approximately every 15 minutes; WidgetKit decides the exact execution time. Its provider reuses readings under one minute old and otherwise asks SwitchBot for the thermometer associated with Climate. The app requests an immediate widget timeline reload after receiving newer readings or changing climate state, plus one coalesced final reload when it becomes inactive, so the Home Screen reflects the controller state without waiting for the scheduled refresh.
 
+## Timed air direction
+
+The Air direction card models the portable AC's physical flap and replaces the raw three-state infrared cycle. Auto is animated from a persisted phase clock. Selecting a fixed height synchronizes to a known Auto start when needed, accounts for the 13-second preparation, 7.5-second one-way travel, and calibrated infrared latency, shows an integrated loading state, and sends the fixing command when the flap reaches the requested position. A short iOS background task lets an in-progress sequence finish if the app becomes inactive.
+
+Only Auto is retained by the appliance across a power cycle. ClimateMap therefore keeps Auto and starts a fresh phase clock when power returns; Fixed restarts as Closed. The last fixed percentage remains remembered only as the next selector target.
+
 ## Changing the floor plan
 
 Edit only `SmartHome/Models/FloorPlanDefinition.swift`. Coordinates are normalized from the original 804 × 1482 reference drawing. The file contains:
@@ -43,4 +49,4 @@ The Plan heatmap is theme-adaptive. Sensor badges track drag gestures immediatel
 
 Meter badges include a compact humidity reading. Status responses are validated before display: missing, zero, non-finite, or implausible climate values remain in a loading state, and the heatmap is withheld unless every discovered meter has a valid reading.
 
-The simulator-only `--open-ac` launch argument opens the second tab directly for visual testing. Normal launches always open on the Plan tab.
+The simulator-only `--open-ac` launch argument opens the second tab directly for visual testing. Add `--open-vent` to scroll that tab to the Air direction card. Normal launches always open on the Plan tab.
